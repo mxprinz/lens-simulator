@@ -1,0 +1,470 @@
+﻿<!-- In Focus: An Interactive Camera Simulator for Photography Basics
+OJT Project
+Developer: Reese Aquino
+Year: 2026
+This project demonstrates how aperture, shutter speed, and ISO affect exposure, motion, and depth of field.
+-->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>In Focus | Lens Sim</title>
+
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+
+<style>
+
+    :root { 
+        --system-bg: #F5F5F9;
+        --glass: rgba(255, 255, 255, 0.75);
+        --fill: #FFFFFF;
+        --accent: #007AFF;
+        --accent-hover: #0056b3;
+        --ok: #34C759;
+        --err: #FF3B30;
+        --label: #8E8E93;
+        --text-dark: #1C1C1E;
+        --text-muted: #48484A;
+        --radius: 20px;
+    }
+    
+    body { 
+        background: linear-gradient(135deg, #e0e5ec 0%, #f4f5f8 100%);
+        color: var(--text-dark); 
+        font-family: 'Inter', -apple-system, system-ui, sans-serif; 
+        display: flex; justify-content: center; align-items: center; 
+        height: 100vh; margin: 0;
+        overflow: hidden;
+        -webkit-font-smoothing: antialiased;
+    }
+
+    h3 { margin: 0 0 12px 0; font-weight: 600; color: var(--text-dark); font-size: 16px; padding-bottom: 12px; border-bottom: 1px solid #e5e7eb; }
+    p { margin: 0 0 16px 0; line-height: 1.5; color: var(--text-muted); }
+    b { color: var(--text-dark); }
+
+    #splash-screen {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: linear-gradient(135deg, #e4eff9 0%, #f6f8fb 50%, #e9e5fa 100%);
+        display: flex; flex-direction: column; justify-content: center; align-items: center;
+        z-index: 200; transition: opacity 0.6s cubic-bezier(0.4, 0, 0.2, 1), visibility 0.6s;
+    }
+    .menu-grid { display: flex; gap: 24px; margin-top: 20px; }
+    .btn-select { 
+        background: var(--fill); border: 1px solid #e5e7eb; 
+        padding: 30px 20px; border-radius: var(--radius); cursor: pointer; width: 180px; 
+        transition: all 0.3s cubic-bezier(0.2, 0.8, 0.2, 1);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.03); display: flex; flex-direction: column; align-items: center; text-align: center;
+    }
+    .btn-select:hover { transform: translateY(-5px); border-color: rgba(0, 122, 255, 0.3); box-shadow: 0 10px 20px rgba(0, 122, 255, 0.1); }
+
+    .sidebar {
+        position: fixed; left: 0; top: 0; height: 100%; width: 80px;
+        background: var(--fill); box-shadow: 4px 0 30px rgba(0,0,0,0.03);
+        display: flex; flex-direction: column; align-items: center; padding: 40px 0;
+        z-index: 150; transform: translateX(-100%); transition: 0.5s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+    .sidebar.active { transform: translateX(0); }
+    .side-btn { 
+        width: 48px; height: 48px; border-radius: var(--radius); margin-bottom: 15px;
+        display: flex; justify-content: center; align-items: center; font-weight: 700;
+        background: transparent; color: var(--label); cursor: pointer; transition: 0.2s; font-size: 14px;
+    }
+    .side-btn:hover { background: #F0F0F5; color: var(--text-dark); }
+    .side-btn.current { background: rgba(0, 122, 255, 0.1); color: var(--accent); }
+    .home-btn { background: #1C1C1E; color: #fff; margin-bottom: 40px; border-radius: 50%; }
+
+    .nav-arrow {
+        position: fixed; top: 50%; transform: translateY(-50%);
+        width: 56px; height: 56px; background: var(--fill); border-radius: 50%;
+        display: flex; justify-content: center; align-items: center;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08); cursor: pointer;
+        z-index: 100; opacity: 0; visibility: hidden; transition: 0.3s;
+        font-weight: 800; font-size: 20px; color: var(--text-dark); border: none;
+    }
+    .nav-left { left: 120px; } .nav-right { right: 40px; }
+    .nav-arrow.visible { opacity: 1; visibility: visible; }
+
+    .dashboard-container {
+        display: flex; justify-content: center; align-items: center;
+        position: relative; margin-left: 110px; width: 1080px; height: 620px;
+    }
+
+    .dashboard { 
+        position: absolute; width: 100%; height: 100%;
+        display: flex; gap: 16px; opacity: 0; visibility: hidden; pointer-events: none;
+        transform: scale(0.96) translateY(10px);
+        transition: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1);
+    }
+
+    .active-flex { opacity: 1 !important; visibility: visible !important; pointer-events: auto !important; transform: scale(1) translateY(0) !important; z-index: 10; }
+
+    .mission-bar {
+        width: 220px; background: var(--fill); border-radius: 24px;
+        padding: 20px; display: flex; flex-direction: column;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.05); flex-shrink: 0; border: 1px solid #e5e7eb;
+    }
+
+    .simulator-main { 
+        flex: 1; display: flex; gap: 16px; padding: 16px; 
+        background: var(--glass); backdrop-filter: blur(40px); -webkit-backdrop-filter: blur(40px);
+        border-radius: 24px; box-shadow: 0 20px 50px rgba(0,0,0,0.06);
+        border: 1px solid rgba(255,255,255,0.8); position: relative; overflow: hidden;
+    }
+
+    .preview-window {
+        position: relative; width: 500px; height: 100%; 
+        border-radius: var(--radius); overflow: hidden; background: #000; flex-shrink: 0;
+        border: 1px solid #e5e7eb;
+    }
+    .layer { position: absolute; width: 100%; height: 100%; object-fit: cover; transition: filter 0.5s ease-out; }
+
+    .controls { flex: 1; display: flex; flex-direction: column; gap: 8px; height: 100%; }
+
+    .hud-display { 
+        background: #f3f4f6; padding: 12px; border-radius: 16px; 
+        border-left: 6px solid var(--accent); min-height: 50px; flex-shrink: 0;
+        display: flex; flex-direction: column; justify-content: center; border: 1px solid #e5e7eb;
+    }
+    .hud-display h4 { margin: 0 0 4px 0; font-size: 10px; color: var(--label); text-transform: uppercase; }
+    .hud-display p { margin: 0; font-size: 13px; font-weight: 600; color: var(--text-dark); }
+
+    .input-card { 
+        background: var(--fill); padding: 10px 14px; border-radius: 16px; 
+        border: 1px solid #e5e7eb; position: relative; flex: 1; display: flex; flex-direction: column; justify-content: center;
+    }
+    .input-title { font-size: 12px; font-weight: 700; color: var(--text-dark); margin-bottom: 2px; display: flex; align-items: center; gap: 8px; }
+    .val-text { color: var(--accent); font-weight: 800; margin-left: auto; font-size: 14px; }
+    
+    .info-btn { 
+        width: 16px; height: 16px; border-radius: 50%; background: #F0F0F5; 
+        color: #8E8E93; font-size: 10px; display: flex; align-items: center; 
+        justify-content: center; cursor: help; font-style: normal; font-weight: 800;
+        position: relative; 
+    }
+    .info-btn:hover::after {
+        content: attr(data-tip); position: absolute; bottom: 125%; 
+        right: -10px; left: auto; 
+        width: 230px; background: #1C1C1E; color: #fff; padding: 12px;
+        border-radius: 12px; font-size: 11px; z-index: 1000; font-weight: 500; line-height: 1.5;
+        box-shadow: 0 15px 35px rgba(0,0,0,0.3); pointer-events: none; text-align: left;
+    }
+
+    input[type=range] { -webkit-appearance: none; width: 100%; height: 4px; background: #E5E5EA; border-radius: 10px; margin: 8px 0; outline: none; }
+    input[type=range]::-webkit-slider-thumb { 
+        -webkit-appearance: none; width: 20px; height: 20px; background: #fff; 
+        border-radius: 50%; border: 2px solid var(--accent); cursor: pointer; box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+
+    .desc { font-size: 10px; color: var(--text-muted); line-height: 1.4; height: 44px; overflow: hidden; font-weight: 600; }
+    
+    .shutter-btn { 
+        background: #1C1C1E; color: #fff; border: none; padding: 14px; 
+        border-radius: var(--radius); font-weight: 700; cursor: pointer; flex-shrink: 0; margin-top: 5px;
+    }
+    .shutter-btn:hover { background: #000; }
+
+    .review-ov {
+        position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(255, 255, 255, 0.98); backdrop-filter: blur(10px);
+        z-index: 150; display: flex; flex-direction: column; justify-content: center; 
+        align-items: center; text-align: center; transform: translateY(100%); 
+        transition: 0.6s cubic-bezier(0.2, 0.8, 0.2, 1); padding: 40px; box-sizing: border-box; border-radius: 24px;
+    }
+    .review-ov.active { transform: translateY(0); }
+    .hidden { opacity: 0 !important; visibility: hidden !important; pointer-events: none; }
+</style>
+</head>
+<body>
+
+<div id="splash-screen">
+    <div style="text-align: center; max-width: 580px; padding: 40px;">
+        <div style="font-size: 56px; font-weight: 800; letter-spacing: -2px; margin-bottom: 16px; color: var(--text-dark);">In Focus</div>
+        <p style="font-size: 17px; line-height: 1.6; color: var(--text-muted); font-weight: 400; margin-bottom: 32px;">
+            Welcome! This simulator lets you experiment with camera settings and see how they change a photo. Choose a scenario below and start exploring how light, motion, and depth work together.
+        </p>
+        <div class="menu-grid">
+            <div class="btn-select" onclick="ui.begin('lesson1')"><h3 style="font-size: 16px;">Lesson 1</h3><p style="font-size: 12px; margin: 0;">The Portrait</p></div>
+            <div class="btn-select" onclick="ui.begin('lesson2')"><h3 style="font-size: 16px;">Lesson 2</h3><p style="font-size: 12px; margin: 0;">Fast Action</p></div>
+            <div class="btn-select" onclick="ui.begin('lesson3')"><h3 style="font-size: 16px;">Lesson 3</h3><p style="font-size: 12px; margin: 0;">Night Shot</p></div>
+        </div>
+    </div>
+</div>
+
+<div class="sidebar">
+    <div class="side-btn home-btn" onclick="ui.home()">H</div>
+    <div class="side-btn sidemark" id="side-l1" onclick="ui.begin('lesson1')">L1</div>
+    <div class="side-btn sidemark" id="side-l2" onclick="ui.begin('lesson2')">L2</div>
+    <div class="side-btn sidemark" id="side-l3" onclick="ui.begin('lesson3')">L3</div>
+</div>
+
+<button class="nav-arrow nav-left" onclick="ui.nav(-1)">&#8249;</button>
+<button class="nav-arrow nav-right" onclick="ui.nav(1)">&#8250;</button>
+
+<div class="dashboard-container">
+    <div class="dashboard" id="lesson1">
+        <div class="mission-bar">
+            <span style="font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; display: block;">Lesson 1: The Portrait</span>
+            <h3 style="font-size: 18px; margin: 0 0 10px 0; font-weight: 800;">Your Assignment</h3>
+            <p style="font-size: 12px; line-height: 1.5; color: #48484A; border-top: 1px solid #F2F2F7; padding-top: 12px;">
+                You need to take a photo of this girl at sunset. To make it look "professional," follow these three rules:<br><br>
+                <b>1. Blur the Background</b><br>Use a wide Aperture (low f-number) so the girl stands out.<br><br>
+                <b>2. Keep it Sharp</b><br>Keep the Shutter fast. If it's too slow, the photo will be blurry from your hands shaking.<br><br>
+                <b>3. Keep it Clean</b><br>Keep the ISO low. High ISO makes the photo look "grainy."
+            </p>
+        </div>
+        <div class="simulator-main">
+            <div id="review-overlay-1" class="review-ov">
+                <h2>Field Report</h2>
+                <p id="critique-1"></p>
+                <button class="shutter-btn" onclick="ui.closeReview('lesson1')">Adjust Settings</button>
+            </div>
+            <div class="preview-window">
+                <img class="layer bg-layer" src="vecteezy_girl.jpg">
+                <img class="layer fg-layer" src="girl_cutout.png">
+            </div>
+            <div class="controls">
+                <div class="hud-display"><h4>Light Meter</h4><p class="msg-text">Dial in...</p></div>
+                <div class="input-card">
+                    <span class="input-title">Aperture <i class="info-btn" data-tip="The physical opening in the lens. Lower f-numbers open the lens wider, letting in more light and creating 'bokeh' (background blur).">i</i> <span class="val-text">--</span></span>
+                    <input type="range" class="i-f" min="0" max="6">
+                    <div class="desc"></div>
+                </div>
+                <div class="input-card">
+                    <span class="input-title">Shutter <i class="info-btn" data-tip="The 'curtain' speed that exposes the sensor. Fast speeds freeze movement; slow speeds allow light in but cause 'motion blur' if the camera or subject moves.">i</i> <span class="val-text">--</span></span>
+                    <input type="range" class="i-s" min="0" max="6">
+                    <div class="desc"></div>
+                </div>
+                <div class="input-card">
+                    <span class="input-title">ISO <i class="info-btn" data-tip="The digital sensitivity of the camera sensor. Higher ISO allows you to shoot in the dark, but introduces 'noise' (grainy/sandy dots) that ruins image clarity.">i</i> <span class="val-text">--</span></span>
+                    <input type="range" class="i-i" min="0" max="6">
+                    <div class="desc"></div>
+                </div>
+                <button class="shutter-btn" onclick="app.capture('lesson1')">Take Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="lesson2">
+        <div class="mission-bar">
+            <span style="font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; display: block;">Lesson 2: Fast Action</span>
+            <h3 style="font-size: 18px; margin: 0 0 10px 0; font-weight: 800;">Your Assignment</h3>
+            <p style="font-size: 12px; line-height: 1.5; color: #48484A; border-top: 1px solid #F2F2F7; padding-top: 12px;">
+                It's a bright, sunny day. Let's capture the skater with settings that a pro would actually use in this light.<br><br>
+                <b>1. Freeze the Action</b><br>Movement this fast requires a very high Shutter speed to stop the blur mid-air.<br><br>
+                <b>2. Environmental Clarity</b><br>We want the whole park sharp. Use a mid-range Aperture to keep the background in focus rather than blurring it.<br><br>
+                <b>3. Daylight Standard</b><br>With the sun providing so much light, keep your sensor sensitivity at its lowest base setting for the cleanest shot.
+            </p>
+        </div>
+        <div class="simulator-main">
+            <div id="review-overlay-2" class="review-ov">
+                <h2>Field Report</h2>
+                <p id="critique-2"></p>
+                <button class="shutter-btn" onclick="ui.closeReview('lesson2')">Adjust Settings</button>
+            </div>
+            <div class="preview-window">
+                <img class="layer bg-layer" src="skatepark.png">
+                <img class="layer fg-layer" src="skater.png">
+            </div>
+            <div class="controls">
+                <div class="hud-display"><h4>Light Meter</h4><p class="msg-text">Capture the light of the sun!</p></div>
+                <div class="input-card"><span class="input-title">Aperture <i class="info-btn" data-tip="Mid-range f-numbers provide 'deep focus' for the whole environment.">i</i> <span class="val-text">--</span></span><input type="range" class="i-f" min="0" max="6"><div class="desc"></div></div>
+                <div class="input-card"><span class="input-title">Shutter <i class="info-btn" data-tip="Fast action requires the highest shutter speeds to prevent blurring.">i</i> <span class="val-text">--</span></span><input type="range" class="i-s" min="0" max="6"><div class="desc"></div></div>
+                <div class="input-card"><span class="input-title">ISO <i class="info-btn" data-tip="Low ISO (100) is standard for bright daylight.">i</i> <span class="val-text">--</span></span><input type="range" class="i-i" min="0" max="6"><div class="desc"></div></div>
+                <button class="shutter-btn" onclick="app.capture('lesson2')">Take Photo</button>
+            </div>
+        </div>
+    </div>
+
+    <div class="dashboard" id="lesson3">
+    <div class="mission-bar">
+        <span style="font-size: 10px; font-weight: 800; color: var(--accent); text-transform: uppercase; margin-bottom: 12px; display: block;">Lesson 3: City Nightscape</span>
+        <h3 style="font-size: 18px; margin: 0 0 10px 0; font-weight: 800;">Your Assignment</h3>
+        <p style="font-size: 12px; line-height: 1.5; color: #48484A; border-top: 1px solid #F2F2F7; padding-top: 12px;">
+            It's twilight, and the city lights are beginning to glow.<br><br>
+            <b>1. Sharp Details</b><br>We want the historic building and the distant cityscape to stay sharp. Use an Aperture that ensures total clarity from front to back.<br><br>
+            <b>2. Handheld Handshake</b><br>To keep it steady without a tripod, don't let the Shutter speed drop below 1/60. Slow enough for light, fast enough for focus.<br><br>
+            <b>3. High Sensitivity</b><br>Twilight is dark. You will need a high sensitivity to capture the scene's ambient light.
+        </p>
+    </div>
+    <div class="simulator-main">
+        <div id="review-overlay-3" class="review-ov">
+            <h2>Field Report</h2>
+            <p id="critique-3"></p>
+            <button class="shutter-btn" onclick="ui.closeReview('lesson3')">Adjust Settings</button>
+        </div>
+        <div class="preview-window">
+            <img class="layer bg-layer" src="nightshot.png">
+            <img class="layer fg-layer" src="building.png">
+        </div>
+        <div class="controls">
+            <div class="hud-display"><h4>Light Meter</h4><p class="msg-text">Dial in the twilight...</p></div>
+            <div class="input-card"><span class="input-title">Aperture <i class="info-btn" data-tip="Mid-range f-numbers (f/8.0) keep the entire landscape in focus.">i</i> <span class="val-text">--</span></span><input type="range" class="i-f" min="0" max="6"><div class="desc"></div></div>
+            <div class="input-card"><span class="input-title">Shutter <i class="info-btn" data-tip="Fast enough to prevent handshake blur (1/60 or faster).">i</i> <span class="val-text">--</span></span><input type="range" class="i-s" min="0" max="6"><div class="desc"></div></div>
+            <div class="input-card"><span class="input-title">ISO <i class="info-btn" data-tip="Higher ISO allows the sensor to capture light in low-light environments.">i</i> <span class="val-text">--</span></span><input type="range" class="i-i" min="0" max="6"><div class="desc"></div></div>
+            <button class="shutter-btn" onclick="app.capture('lesson3')">Take Photo</button>
+        </div>
+    </div>
+</div>
+</div>
+
+<script>
+    const CONFIG = {
+        f: ["f/1.8", "f/2.8", "f/4.0", "f/5.6", "f/8.0", "f/11", "f/22"],
+        s: ["1/1000", "1/500", "1/250", "1/125", "1/60", "1/30", "1/15"],
+        i: ["100", "200", "400", "800", "1600", "3200", "6400"],
+        edu: {
+            f: [
+                "Max Blur: Best for isolating subjects; worst for group photos where everyone needs to be sharp.",
+                "Soft Bokeh: Best for portraits; worst for architecture or landscapes.",
+                "Moderate Depth: Best for street photography; worst for extreme close-ups.",
+                "Standard Aperture: Best for general snapshots; worst for low-light action.",
+                "Deep Depth: Best for sharp backgrounds; worst for artistic subject separation.",
+                "Maximum Depth: Best for sweeping landscapes; worst for handheld indoor shots.",
+                "Full Focus: Best for macro/scientific shots; worst for low light (requires massive flash)."
+            ],
+            s: [
+                "Fast Shutter: Best for freezing sports; worst for low-light cityscapes (too dark).",
+                "Action Speed: Best for running pets/kids; worst for capturing smooth water motion.",
+                "Handheld Limit: Best for casual walking shots; worst for high-speed racing.",
+                "Risky Shutter: Best for static subjects; worst for anything moving (will blur).",
+                "Intentional Blur: Best for light trails; worst for sharp faces.",
+                "Slow Shutter: Best for silky waterfalls (on tripod); worst for handheld use.",
+                "Long Exposure: Best for starry nights; worst for anything not on a concrete-steady tripod."
+            ],
+            i: [
+                "Base ISO: Best for high-quality prints; worst for dark rooms without a flash.",
+                "Low Sensitivity: Best for bright sun; worst for indoor events.",
+                "Moderate Sensitivity: Best for cloudy days; worst for night-time sports.",
+                "Visible Noise: Best for 'vintage' looks; worst for professional clean commercial work.",
+                "High Sensitivity: Best for emergency low light; worst for large-scale displays.",
+                "Low Light Mode: Best for 'seeing' in the dark; worst for capturing fine skin textures.",
+                "Maximum Gain: Best for surveillance/security; worst for aesthetic photography."
+            ]
+        },
+        targets: { lesson1: [1, 2, 0], lesson2: [4, 0, 0], lesson3: [4, 4, 5] }
+    };
+
+    const lessons = ['lesson1', 'lesson2', 'lesson3'];
+    let currentIndex = 0;
+
+    const ui = {
+        begin(id) {
+            currentIndex = lessons.indexOf(id);
+            document.getElementById('splash-screen').classList.add('hidden');
+            document.querySelector('.sidebar').classList.add('active');
+            this.showCurrent();
+        },
+        home() {
+            document.getElementById('splash-screen').classList.remove('hidden');
+            document.querySelector('.sidebar').classList.remove('active');
+            lessons.forEach(l => document.getElementById(l).classList.remove('active-flex'));
+        },
+        nav(dir) {
+            currentIndex += dir;
+            if (currentIndex < 0) currentIndex = 0;
+            if (currentIndex >= lessons.length) currentIndex = lessons.length - 1;
+            this.showCurrent();
+        },
+        showCurrent() {
+            const currentId = lessons[currentIndex];
+            lessons.forEach((l, index) => {
+                document.getElementById(l).classList.remove('active-flex');
+                document.getElementById('side-l' + (index + 1)).classList.remove('current');
+            });
+            document.getElementById(currentId).classList.add('active-flex');
+            document.getElementById('side-l' + (currentIndex + 1)).classList.add('current');
+            document.querySelector('.nav-left').classList.toggle('visible', currentIndex > 0);
+            document.querySelector('.nav-right').classList.toggle('visible', currentIndex < lessons.length - 1);
+            app.setup(currentId);
+        },
+        closeReview(id) {
+            document.getElementById('review-overlay-' + id.replace('lesson','')).classList.remove('active');
+        }
+    };
+
+    const app = {
+        setup(id) {
+            const container = document.getElementById(id);
+            container.querySelector('.i-f').oninput = () => this.render(id);
+            container.querySelector('.i-s').oninput = () => this.render(id);
+            container.querySelector('.i-i').oninput = () => this.render(id);
+            this.render(id);
+        },
+        render(id) {
+            const container = document.getElementById(id);
+            const f = parseInt(container.querySelector('.i-f').value);
+            const s = parseInt(container.querySelector('.i-s').value);
+            const i = parseInt(container.querySelector('.i-i').value);
+
+            const vals = container.querySelectorAll('.val-text');
+            vals[0].innerText = CONFIG.f[f]; vals[1].innerText = CONFIG.s[s]; vals[2].innerText = CONFIG.i[i];
+
+            const descs = container.querySelectorAll('.desc');
+            descs[0].innerText = CONFIG.edu.f[f]; descs[1].innerText = CONFIG.edu.s[s]; descs[2].innerText = CONFIG.edu.i[i];
+
+            let exp;
+            if (id === 'lesson2') {
+                exp = (((6 - f) + s + i) / 7) + 0.65; 
+            } else if (id === 'lesson3') {
+                exp = ((6 - f) + s + i) / 11;
+            } else {
+                exp = ((6 - f) + s + i) / 7;
+            }
+
+            let bgBlur = (id === 'lesson2' ? 0 : (6 - f) * 0.5);
+            let fgBlur = (id === 'lesson3' ? (6 - f) * 0.25 : 0);
+            let contrastVal = 100 + (i * 2);
+
+            if (id === 'lesson3') {
+                bgBlur = f >= 4 ? 0 : (4 - f) * 0.5;
+                fgBlur = f >= 4 ? 0 : (4 - f) * 0.25;
+                contrastVal = 100 + ((i - 5) * 2); 
+            }
+
+            container.querySelector('.bg-layer').style.filter = `brightness(${exp}) blur(${bgBlur}px)`;
+            container.querySelector('.fg-layer').style.filter = `brightness(${exp}) contrast(${contrastVal}%) blur(${fgBlur}px)`;
+
+            const msg = container.querySelector('.msg-text');
+            if (exp < 0.9) msg.innerText = "Under-exposed: Too dark.";
+            else if (exp > 1.1) msg.innerText = "Over-exposed: Too bright.";
+            else msg.innerText = "Balanced Light.";
+        },
+        capture(id) {
+            const container = document.getElementById(id);
+            const num = id.replace('lesson', '');
+            const f = parseInt(container.querySelector('.i-f').value);
+            const s = parseInt(container.querySelector('.i-s').value);
+            const i = parseInt(container.querySelector('.i-i').value);
+            const t = CONFIG.targets[id];
+
+            document.getElementById('review-overlay-' + num).classList.add('active');
+            const critique = document.getElementById('critique-' + num);
+
+            if (f == t[0] && s == t[1] && i == t[2]) {
+                critique.innerHTML = "<b>Perfect Job!</b><br><br>You nailed the technical requirements for this shot.";
+            } else {
+                if (id === 'lesson1') {
+                    if (f > 2) critique.innerHTML = "<b>Background is distracting!</b><br>Try a lower f-number to blur that background.";
+                    else if (s > 3) critique.innerHTML = "<b>Motion Blur!</b><br>Speed up the shutter.";
+                    else critique.innerHTML = "<b>Too much grain!</b><br>Lower the ISO.";
+                } 
+                else if (id === 'lesson2') {
+                    if (s > 0) critique.innerHTML = "<b>Motion Blur!</b><br>You need 1/1000 shutter speed to freeze the skater.";
+                    else if (f != 4) critique.innerHTML = "<b>Focus Check!</b><br>Use f/8.0 to keep the park sharp.";
+                    else critique.innerHTML = "<b>Daylight Quality!</b><br>In bright sun, use ISO 100.";
+                } 
+                else if (id === 'lesson3') {
+                    if (f != 4) critique.innerHTML = "<b>Focus Check!</b><br>Use f/8.0 to keep the building and skyline sharp.";
+                    else if (s > 4) critique.innerHTML = "<b>Handshake Blur!</b><br>Don't go below 1/60 for handheld night shots.";
+                    else if (s < 4) critique.innerHTML = "<b>Too Dark!</b><br>Shutter is too fast; let more light in at 1/60.";
+                    else critique.innerHTML = "<b>Sensitivity:</b><br>You need ISO 3200 for this twilight scene.";
+                }
+            }
+        }
+    };
+</script>
+
+</body>
+</html>
